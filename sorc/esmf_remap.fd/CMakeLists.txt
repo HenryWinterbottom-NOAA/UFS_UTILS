@@ -1,26 +1,11 @@
-list(APPEND fortran_src
-  remap.F90
-)
+# CMakeLists.txt
+# Build the `ufs_tools` applications.
+# Author: Henry R. Winterbottom
+# Date: 25 July 2023
+# Version: 0.0.1
+# License: LGPL v2.1
 
-if(CMAKE_Fortran_COMPILER_ID MATCHES "^(Intel)$")
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -r8 -i4 -convert big_endian")
-elseif(CMAKE_Fortran_COMPILER_ID MATCHES "^(GNU)$")
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fdefault-real-8")
-  if(CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER_EQUAL 10)
-    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fallow-argument-mismatch")
-  endif()
-endif()
-
-set(exe_name weight_gen)
-add_executable(${exe_name} ${fortran_src})
-target_link_libraries(
-  ${exe_name}
-  sp::sp_d
-  NetCDF::NetCDF_Fortran)
-
-install(TARGETS ${exe_name})
-
-# If doxygen documentation we enabled, build it.
-if(ENABLE_DOCS)
-  add_subdirectory(docs)
-endif()
+# Project information
+cmake_minimum_required (VERSION 3.16)
+project (esmf_remap_test)
+add_subdirectory (${CMAKE_CURRENT_SOURCE_DIR}/esmf_remap)
