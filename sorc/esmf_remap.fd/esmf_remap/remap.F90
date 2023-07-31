@@ -1,3 +1,4 @@
+
 !> @file remap_interface.F90
 !! @details Remaps specified variables from a source grid to a
 !!          destination grid using pre-computed ESMF remapping
@@ -83,19 +84,23 @@ contains
     type(esmffile_struct), intent(in) :: esmffile
     type(var_struct), intent(in) :: var
     character(len=maxchar) :: filename
+    character(len=maxchar) :: msg
 
     if (var%bilinear) then
        filename = check_esmffile(esmf_filename=esmffile%bilinear)
        return
-    end if
-    if (var%conserve) then
+    elseif (var%conserve) then
        filename = check_esmffile(esmf_filename=esmffile%conserve)
        return
-    end if    
-    if (var%nearests2d) then
+    elseif (var%nearests2d) then
        filename = check_esmffile(esmf_filename=esmffile%nearests2d)
        return
+    else
+       write(msg,500)
+       call abort_remap(msg=msg)
     end if
+500 format("Interpolation type either not specified or not supported. " &
+         "Aborting!!!")
   end function get_esmf_file
   
   !> @brief Remaps the input variable using the respective ESMF
@@ -133,12 +138,16 @@ contains
     type(esmffile_struct), intent(in) :: esmffile
     type(varinfo_struct), intent(in) :: varinfo
     type(esmf_struct) :: esmf
+    real(rdouble), dimension(:,:), allocatable :: varinput
+    real(rdouble), dimension(:,:), allocatable :: varoutput
     integer(ilong) :: idx
 
     !! Loop through variables and interpolate accordingly.
     do idx = 1, varinfo%nvars
        esmf%filename = get_esmf_file(esmffile=esmffile, var=varinfo%var(idx))
        call esmf_read(esmf=esmf)
+       
+      
        
        !! # TODO: Here
        call destroy_struct(esmf)

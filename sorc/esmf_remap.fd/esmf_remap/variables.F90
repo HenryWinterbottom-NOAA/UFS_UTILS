@@ -85,10 +85,11 @@ module variables_interface
      character(len=maxchar) :: ncvarin
      character(len=maxchar) :: ncvarout
      character(len=maxchar) :: remapfile
-     character(len=maxchar) :: stagger
      logical :: bilinear
      logical :: conserve
      logical :: nearests2d
+     integer :: ndims
+     integer :: nlevs
   end type var_struct
 
   !> @brief The `varinfo_struct` data structure.

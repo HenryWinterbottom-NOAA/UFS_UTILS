@@ -6,10 +6,11 @@
 !! @license LGPL v2.1
 module namelist_interface
   use netcdf, only: nf90_double
-  use netcdf_interface !! # TODO: Update with `only`; ncdata, ncvarinfo
+  use netcdf_interface, only: destroy_ncvarinfo, init_ncvarinfo, ncdata, ncdimval, &
+       ncread, ncvardims, ncvarinfo_struct, ncwrite
   use variables_interface, only: abort_remap, destroy_struct, dstgrid_struct, &
        esmffile_struct, get_boolean, ilong, init_struct, interp_struct, maxchar, &
-       rdouble, varinfo_struct
+       rdouble, var_struct, varinfo_struct
   implicit none
   private
   public :: read_namelist
@@ -27,7 +28,7 @@ module namelist_interface
   integer(ilong) :: nlevs = 1
   namelist /gridinfo/ grid_ncfile, grid_nclatname, grid_nclonname
   namelist /esmf/ bilinear, conserve, nearests2d
-  namelist /share/ output_netcdf, varsfile, nlevs
+  namelist /share/ output_netcdf, varsfile
 contains
 
   !> @brief Determines the interpolation type from the input variable
@@ -84,55 +85,112 @@ contains
        ncdims = ncdims + 2
     end if
   end function get_ncdims
+
+  !> @brief Determines the maximum number of levels using the
+  !!        attributes from the specified variables to be remapped.
+  !!
+  !! @params[in] # TODO
+  !!
+  !!
+  !! @returns nlevs
+  !!    - The total number of levels for the specified variable.
+  subroutine get_diminfo(var, ndims, nlevs)
+    type(var_struct), intent(in) :: var
+    type(ncdata) :: nccls
+    character(len=maxchar) :: dimname
+    integer(ilong), intent(out) :: nlevs
+    integer(ilong), intent(out) :: ndims
+    
+    nccls%ncfile = var%ncfilein
+    nccls%read = .true.
+    call nccls%ncopen()
+    call ncvardims(nccls=nccls, varname=var%ncvarin, ndims=ndims)
+    if (ndims == 4) then
+       call ncdimval(nccls=nccls, dimid=4, dimname=dimname, dimval=nlevs)
+    elseif (ndims == 3) then
+       call ncdimval(nccls=nccls, dimid=3, dimname=dimname, dimval=nlevs)
+    else
+       nlevs=1
+    end if
+    call nccls%ncclose()
+  end subroutine get_diminfo
   
   !> @brief Builds the output netCDF formatted file.
-  subroutine build_output(output_netcdf, dstgrid, esmffile, varinfo)
+  subroutine build_output(dstgrid, esmffile, varinfo)
     type(esmffile_struct), intent(in) :: esmffile
+    type(ncdata) :: nccls
     type(varinfo_struct), intent(in) :: varinfo
     type(dstgrid_struct), intent(inout) :: dstgrid
     type(ncvarinfo_struct) :: ncvarinfo
-    character(len=maxchar), intent(inout) :: output_netcdf
-    integer(ilong) :: idx
+    integer(ilong) :: nlevs
 
-    call define_ncvars(varinfo=varinfo,ncvarinfo=ncvarinfo)
-    
-
+    nccls%ncfile = trim(adjustl(output_netcdf))
+    nccls%write = .true.
+    call nccls%ncopen()
+    call define_ncvars(nccls=nccls,varinfo=varinfo,ncvarinfo=ncvarinfo, &
+         dstgrid=dstgrid)
+    call init_ncvarinfo(ncvarinfo=ncvarinfo)
+    call nccls%ncwritedef(ncvarinfo=ncvarinfo)
+    call write_output(nccls=nccls, dstgrid=dstgrid)
+    call nccls%ncclose()
     call destroy_struct(dstgrid)
   end subroutine build_output
 
-  !> @brief Defines the dimension variables for the output netCDF
-  !!        formatted file.
-  !!
-  !! @params[in] esmffile
-  !!    - An initialized `esmffile_struct` data structure variable.
-  !!
-  !! @params[inout] ncvarinfo
-  !!    - A `ncvarinfo_struct` data structure variable.
-  subroutine define_ncdims(esmffile, ncvarinfo)
-    type(esmffile_struct), intent(in) :: esmffile
+  !> @brief Define the netCDF-formatted file dimension attributes.
+  subroutine define_ncdims(nccls, ncvarinfo, varinfo, dstgrid)
+    type(dstgrid_struct), intent(inout) :: dstgrid
+    type(ncdata) :: nccls
     type(ncvarinfo_struct), intent(inout) :: ncvarinfo
+    type(varinfo_struct), intent(in) :: varinfo
+    integer(ilong) :: idx
+    
+    !! Define the netCDF dimension attributes.
 
-    ncvarinfo%ndims = 1
-    ncvarinfo%ndims = ncvarinfo%ndims + get_ncdims(esmffile%bilinear)
-    ncvarinfo%ndims = ncvarinfo%ndims + get_ncdims(esmffile%conserve)
-    ncvarinfo%ndims = ncvarinfo%ndims + get_ncdims(esmffile%nearests2d)
+    dstgrid%nlevs = maxval(varinfo%var(:)%nlevs)
+    call init_struct(dstgrid)
+    ncvarinfo%dimname(1) = "nlons"
+    ncvarinfo%dimid(1) = 1
+    ncvarinfo%dimval(1) = dstgrid%nlon
+    ncvarinfo%dimname(2) = "nlats"
+    ncvarinfo%dimid(2) = 2
+    ncvarinfo%dimval(2) = dstgrid%nlat
+    ncvarinfo%dimname(3) = "nlevels"
+    ncvarinfo%dimid(3) = 3
+    ncvarinfo%dimval(3) = dstgrid%nlevs
+    do idx = 1, ncvarinfo%dimval(3)
+       dstgrid%levels(idx) = real(idx)
+    end do
+    ncvarinfo%varndim(1) = 2
+    ncvarinfo%varname(1) = "lons"
+    ncvarinfo%varid(1) = 1
+    ncvarinfo%vardimid(1,1) = 1; ncvarinfo%vardimid(1,2) = 2
+    ncvarinfo%varndim(2) = 2
+    ncvarinfo%varname(2) = "lats"
+    ncvarinfo%varid(2) = 2
+    ncvarinfo%vardimid(2,1) = 1; ncvarinfo%vardimid(2,2) = 2
+    ncvarinfo%varndim(3) = 1
+    ncvarinfo%varname(3) = "levels"
+    ncvarinfo%varid(3) = 3
+    ncvarinfo%vardimid(3,1) = 3
   end subroutine define_ncdims
-
+    
   !> @brief Defines the variables variables attributes.
-  !!
-  subroutine define_ncvars(varinfo,ncvarinfo)
+  !! # TODO
+  subroutine define_ncvars(nccls,varinfo,ncvarinfo, dstgrid)
+    type(dstgrid_struct), intent(inout) :: dstgrid
+    type(ncdata), intent(in) :: nccls
     type(varinfo_struct), intent(in) :: varinfo
     type(ncvarinfo_struct), intent(inout) :: ncvarinfo
-    integer(ilong) :: idx, ncvar
+    character(len=maxchar) :: varname
     
-    ncvarinfo%nvars = varinfo%nvars + ncvarinfo%ndims
+    !! # TODO: This can be generalized further; right now we assume
+    !! # only (nx,ny,nz) type arrays.
+    ncvarinfo%ndims = 3  
+    ncvarinfo%nvars = ncvarinfo%ndims !! + varinfo%nvars
     call init_ncvarinfo(ncvarinfo=ncvarinfo)
-    !! # TODO: This should be defined from the source grid variable
-    !! # type; currently we assume all are double precision.
     ncvarinfo%dtype(1:ncvarinfo%nvars) = nf90_double 
-    ncvar = 3
-    !! # TODO Build structure here using generic subroutine.
-
+    call define_ncdims(nccls=nccls, ncvarinfo=ncvarinfo, dstgrid=dstgrid, &
+         varinfo=varinfo) 
   end subroutine define_ncvars
 
   !> @brief Define the destination grid attributes.
@@ -169,8 +227,7 @@ contains
     dstgrid%nlat = grid_dims(2)
     if (.not. allocated(grid_var1d)) &
          allocate(grid_var1d(dstgrid%nlon * dstgrid%nlat))
-    dstgrid%nlevs = nlevs
-    call init_struct(dstgrid)
+    
     varname = dstgrid%nclatname
     call ncread(nccls=nccls, varname=varname, vararr=grid_var1d)
     dstgrid%lat = reshape(grid_var1d, (/dstgrid%nlon, dstgrid%nlat/))
@@ -210,14 +267,16 @@ contains
   !! @params[inout] varinfo
   !!    - # TODO
   subroutine get_varinfo(varinfo)
-    type(varinfo_struct), intent(inout) :: varinfo
     type(interp_struct) :: interpinfo
+    type(ncdata) :: nccls
+    type(varinfo_struct), intent(inout) :: varinfo
     character(len=maxchar) :: varstr
     character(len=1), parameter :: delimiter = ","
     integer(ilong), dimension(:), allocatable :: commaidx
     integer(ilong), parameter :: iounit = 777
     integer(ilong) :: idx, ios, nitem, sdx, strlen
-    
+
+    nlevs = 1
     varinfo%nvars = get_nitems(filename=varsfile)
     call init_struct(varinfo)
     open(unit=iounit, file=trim(adjustl(varsfile)), status="old", &
@@ -237,12 +296,14 @@ contains
              commaidx(nitem) = sdx
           end if
        end do
-       
        varinfo%var(idx)%ncvarin = varstr(1:commaidx(1)-1)
        varinfo%var(idx)%ncvarout = varstr(commaidx(1)+1:commaidx(2)-1)
        varinfo%var(idx)%interp_type = varstr(commaidx(2)+1:commaidx(3)-1)
-       varinfo%var(idx)%ncfilein = varstr(commaidx(3)+1:commaidx(4)-1)
+       varinfo%var(idx)%ncfilein = varstr(commaidx(3)+1:len(varstr))       
        if (allocated(commaidx)) deallocate(commaidx)
+       call get_diminfo(var=varinfo%var(idx), ndims=varinfo%var(idx)%ndims, &
+            nlevs=varinfo%var(idx)%nlevs)
+       nlevs = max(nlevs, varinfo%var(idx)%nlevs)
        interpinfo = get_interp(interp=varinfo%var(idx)%interp_type)
        varinfo%var(idx)%bilinear = interpinfo%bilinear
        varinfo%var(idx)%conserve = interpinfo%conserve
@@ -251,8 +312,6 @@ contains
     close(iounit)
   end subroutine get_varinfo
 
-  !> 
-  
   !> @brief Reads the namelist file `esmf_remap.input`.
   !!
   !! @params # TODO
@@ -272,8 +331,23 @@ contains
     call get_gridinfo(dstgrid=dstgrid)
     call get_esmf(esmffile=esmffile)
     call get_varinfo(varinfo=varinfo)
-    call build_output(dstgrid=dstgrid, varinfo=varinfo,esmffile=esmffile, &
-         output_netcdf=output_netcdf)
+    call build_output(dstgrid=dstgrid,varinfo=varinfo,esmffile=esmffile)
     call destroy_struct(grid=dstgrid)
   end subroutine read_namelist
+
+  !> @brief
+  subroutine write_output(nccls, dstgrid)
+    type(dstgrid_struct) :: dstgrid
+    type(ncdata) :: nccls
+    character(len=maxchar) :: msg
+    
+    call ncwrite(nccls=nccls,varname="lons", vararr=dstgrid%lon)
+    write(msg,500) "lons", trim(adjustl(nccls%ncfile)); write(6,*) trim(adjustl(msg))
+    call ncwrite(nccls=nccls,varname="lats", vararr=dstgrid%lat)
+    write(msg,500) "lats", trim(adjustl(nccls%ncfile)); write(6,*) trim(adjustl(msg))
+    call ncwrite(nccls=nccls,varname="levels", vararr=dstgrid%levels)
+    write(msg,500) "levels", trim(adjustl(nccls%ncfile)); write(6,*) trim(adjustl(msg))
+    
+500 format("Writing variable", 1x, a, 1x, "to netCDF file path", 1x, a, 1x,".")
+  end subroutine write_output
 end module namelist_interface

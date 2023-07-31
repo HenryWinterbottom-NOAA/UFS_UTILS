@@ -12,6 +12,7 @@ module netcdf_interface
    private
    public :: destroy_ncvarinfo
    public :: init_ncvarinfo
+   public :: ncdimval
    public :: ncread
    public :: ncvardims
    public :: ncvarinfo_struct
@@ -120,12 +121,22 @@ module netcdf_interface
    subroutine ncdimid(nccls, dimname)
      class(ncdata), intent(inout) :: nccls
      character(len=maxchar) :: dimname
-     character(len=maxchar) :: msg
      
      nccls%ncstatus = nf90_inq_dimid(nccls%ncfileid, trim(adjustl(dimname)), &
           nccls%ncdimid)
    end subroutine ncdimid
-   
+
+   !> @brief Returns the value of a netCDF dimension.
+   subroutine ncdimval(nccls, dimid, dimname, dimval)
+     class(ncdata), intent(inout) :: nccls
+     character(len=maxchar) :: dimname
+     integer(ilong) :: dimid
+     integer(ilong) :: dimval
+
+     nccls%ncstatus = nf90_inquire_dimension(nccls%ncfileid, dimid, &
+          name=dimname, len=dimval)
+   end subroutine ncdimval
+     
    !> @brief Raises an exception for errors encountered by the
    !!        respective netCDF class.
    !!
@@ -200,7 +211,7 @@ module netcdf_interface
    !!      `varname`.
    subroutine ncvardims(nccls, varname, ndims)
      class(ncdata), intent(inout) :: nccls
-     character(len=maxchar) :: varname
+     character(len=*) :: varname
      integer(ilong) :: ndims
      
      call ncvarid(nccls=nccls, varname=varname)
@@ -219,7 +230,7 @@ module netcdf_interface
    !!    - The netCDF variable name.
    subroutine ncvarid(nccls, varname)
      class(ncdata), intent(inout) :: nccls
-     character(len=maxchar) :: varname
+     character(len=*) :: varname
      character(len=maxchar) :: msg
      
      nccls%ncstatus = nf90_inq_varid(nccls%ncfileid, trim(adjustl(varname)), &
@@ -271,7 +282,7 @@ module netcdf_interface
   !!    - The netCDF variable 1-dimensional array values.
   subroutine read_arr1d_double(nccls, varname, vararr)
     class(ncdata), intent(inout) :: nccls
-    character(len=maxchar) :: varname
+    character(len=*) :: varname
     real(rdouble), dimension(:), intent(out) :: vararr
      
     call ncvarid(nccls=nccls, varname=varname)
@@ -291,7 +302,7 @@ module netcdf_interface
   !!    - The netCDF variable 1-dimensional array values.
   subroutine read_arr1d_integer(nccls, varname, vararr)
     class(ncdata), intent(inout) :: nccls
-    character(len=maxchar) :: varname
+    character(len=*) :: varname
     integer(ilong), dimension(:), intent(out) :: vararr
      
     call ncvarid(nccls=nccls, varname=varname)
@@ -314,7 +325,7 @@ module netcdf_interface
   !!    - The netCDF variable 1-dimensional array values.
   subroutine read_arr1d_single(nccls, varname, vararr)
     class(ncdata), intent(inout) :: nccls
-    character(len=maxchar) :: varname
+    character(len=*) :: varname
     real(rsingle), dimension(:), intent(out) :: vararr
     
     call ncvarid(nccls=nccls, varname=varname)
@@ -337,7 +348,7 @@ module netcdf_interface
   !!    - The netCDF variable 2-dimensional array values.
    subroutine read_arr2d_double(nccls, varname, vararr)
      class(ncdata), intent(inout) :: nccls
-     character(len=maxchar) :: varname
+     character(len=*) :: varname
      real(rdouble), dimension(:, :), intent(out) :: vararr
      
      call ncvarid(nccls=nccls, varname=varname)
@@ -360,7 +371,7 @@ module netcdf_interface
   !!    - The netCDF variable 2-dimensional array values.
    subroutine read_arr2d_single(nccls, varname, vararr)
      class(ncdata), intent(inout) :: nccls
-     character(len=maxchar) :: varname
+     character(len=*) :: varname
      real(rsingle), dimension(:, :), intent(out) :: vararr
      
      call ncvarid(nccls=nccls, varname=varname)
@@ -383,7 +394,7 @@ module netcdf_interface
   !!    - The netCDF variable 3-dimensional array values.
    subroutine read_arr3d_double(nccls, varname, vararr)
      class(ncdata), intent(inout) :: nccls
-     character(len=maxchar) :: varname
+     character(len=*) :: varname
      real(rdouble), dimension(:, :, :), intent(out) :: vararr
      
      call ncvarid(nccls=nccls, varname=varname)
@@ -406,7 +417,7 @@ module netcdf_interface
   !!    - The netCDF variable 3-dimensional array values.
    subroutine read_arr3d_single(nccls, varname, vararr)
      class(ncdata), intent(inout) :: nccls
-     character(len=maxchar) :: varname
+     character(len=*) :: varname
      real(rsingle), dimension(:, :, :), intent(out) :: vararr
      
      call ncvarid(nccls=nccls, varname=varname)
@@ -429,7 +440,7 @@ module netcdf_interface
   !!    - The netCDF variable value(s).
    subroutine read_scalar_double(nccls, varname, vararr)
      class(ncdata), intent(inout) :: nccls
-     character(len=maxchar) :: varname
+     character(len=*) :: varname
      real(rdouble), intent(out) :: vararr
      
      call ncvarid(nccls=nccls, varname=varname)
@@ -452,7 +463,7 @@ module netcdf_interface
   !!    - The netCDF variable value(s).
    subroutine read_scalar_single(nccls, varname, vararr)
      class(ncdata), intent(inout) :: nccls
-     character(len=maxchar) :: varname
+     character(len=*) :: varname
      real(rsingle), intent(out) :: vararr
      
      call ncvarid(nccls=nccls, varname=varname)
@@ -472,7 +483,7 @@ module netcdf_interface
   !!    - The netCDF variable scalar/array.
    subroutine write_arr1d_double(nccls, varname, vararr)
      class(ncdata), intent(inout) :: nccls
-     character(len=maxchar) :: varname
+     character(len=*) :: varname
      real(rdouble), dimension(:) :: vararr
      
      call ncvarid(nccls=nccls, varname=varname)
@@ -492,7 +503,7 @@ module netcdf_interface
   !!    - The netCDF variable scalar/array.
    subroutine write_arr1d_single(nccls, varname, vararr)
      class(ncdata), intent(inout) :: nccls
-     character(len=maxchar) :: varname
+     character(len=*) :: varname
      real(rsingle), dimension(:) :: vararr
      
      call ncvarid(nccls=nccls, varname=varname)
@@ -512,10 +523,10 @@ module netcdf_interface
   !!    - The netCDF variable scalar/array.
    subroutine write_arr2d_double(nccls, varname, vararr)
      class(ncdata), intent(inout) :: nccls
-     character(len=maxchar) :: varname
+     character(len=*) :: varname
      real(rdouble), dimension(:, :) :: vararr
-     
-     call ncvarid(nccls=nccls, varname=varname)
+
+     call ncvarid(nccls=nccls, varname=trim(adjustl(varname)))
      nccls%ncstatus = nf90_put_var(nccls%ncfileid, nccls%ncvarid, vararr)
      if (nccls%ncstatus /= 0) call ncerror(nccls=nccls)
    end subroutine write_arr2d_double
@@ -532,7 +543,7 @@ module netcdf_interface
   !!    - The netCDF variable scalar/array.
    subroutine write_arr2d_single(nccls, varname, vararr)
      class(ncdata), intent(inout) :: nccls
-     character(len=maxchar) :: varname
+     character(len=*) :: varname
      real(rsingle), dimension(:, :) :: vararr
      
      call ncvarid(nccls=nccls, varname=varname)
@@ -552,7 +563,7 @@ module netcdf_interface
   !!    - The netCDF variable scalar/array.
    subroutine write_arr3d_double(nccls, varname, vararr)
      class(ncdata), intent(inout) :: nccls
-     character(len=maxchar) :: varname
+     character(len=*) :: varname
      real(rdouble), dimension(:, :, :) :: vararr
      
      call ncvarid(nccls=nccls, varname=varname)
@@ -572,7 +583,7 @@ module netcdf_interface
   !!    - The netCDF variable scalar/array.
    subroutine write_arr3d_single(nccls, varname, vararr)
      class(ncdata), intent(inout) :: nccls
-     character(len=maxchar) :: varname
+     character(len=*) :: varname
      real(rsingle), dimension(:, :, :) :: vararr
      
      call ncvarid(nccls=nccls, varname=varname)
@@ -592,7 +603,7 @@ module netcdf_interface
    !!    - The netCDF variable scalar/array.
    subroutine write_scalar_double(nccls, varname, vararr)
      class(ncdata), intent(inout) :: nccls
-     character(len=maxchar) :: varname
+     character(len=*) :: varname
      real(rdouble) :: vararr
      
      call ncvarid(nccls=nccls, varname=varname)
@@ -612,7 +623,7 @@ module netcdf_interface
   !!    - The netCDF variable scalar/array.
    subroutine write_scalar_single(nccls, varname, vararr)
      class(ncdata), intent(inout) :: nccls
-     character(len=maxchar) :: varname
+     character(len=*) :: varname
      real(rsingle) :: vararr
      
      call ncvarid(nccls=nccls, varname=varname)
