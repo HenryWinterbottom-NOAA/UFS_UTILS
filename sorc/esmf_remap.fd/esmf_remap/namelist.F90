@@ -4,6 +4,13 @@
 !! @date 30 June 2023
 !! @version 0.0.1
 !! @license LGPL v2.1
+
+!! # TODO: This module has become too bloated; move the bits related
+!! # to building the output to a seperate module and keep this as
+!! # clean as possible and only carry functions and routines that are
+!! # relevant to the configuration.
+
+
 module namelist_interface
   use netcdf, only: nf90_double
   use netcdf_interface, only: destroy_ncvarinfo, init_ncvarinfo, ncdata, ncdimval, &
