@@ -1,18 +1,18 @@
-
 !> @file remap_interface.F90
 !! @details Remaps specified variables from a source grid to a
 !!          destination grid using pre-computed ESMF remapping
 !!          coefficients.
 !! @author Henry R. Winterbottom
-!! @date 24 July 2023
+!! @date 01 August 2023
 !! @version 0.0.1
 !! @license LGPL v2.1
 module remap_interface
+  use io_interface, only: abort_remap, write_msg
   use namelist_interface, only: output_netcdf
   use netcdf_interface, only: ncdata, ncread, ncwrite
-  use variables_interface, only: abort_remap, destroy_struct, dstgrid_struct, &
-       esmf_struct, esmffile_struct, ilong, init_struct, maxchar, rdouble, &
-       rsingle, var_struct, varinfo_struct
+  use variables_interface, only: destroy_struct, dstgrid_struct, esmf_struct, &
+       esmffile_struct, ilong, init_struct, maxchar, rdouble, var_struct, &
+       varinfo_struct
   implicit none
   private
   public :: remap
@@ -60,8 +60,7 @@ contains
   !!    - The valid ESMF remapping coefficient file path.
   function check_esmffile(esmf_filename) result(filename)
     character(len=maxchar), intent(in) :: esmf_filename
-    character(len=maxchar) :: filename
-    character(len=maxchar) :: msg
+    character(len=maxchar) :: filename, msg
     
     filename = trim(adjustl(esmf_filename))
     if (filename == "NOT USED") then
@@ -84,8 +83,7 @@ contains
   function get_esmf_file(esmffile, var) result(filename)
     type(esmffile_struct), intent(in) :: esmffile
     type(var_struct), intent(in) :: var
-    character(len=maxchar) :: filename
-    character(len=maxchar) :: msg
+    character(len=maxchar) :: filename, msg
 
     if (var%bilinear) then
        filename = check_esmffile(esmf_filename=esmffile%bilinear)
@@ -107,16 +105,22 @@ contains
   !> @brief Remaps the input variable using the respective ESMF
   !!         remapping attributes.
   !!
-  !! # TODO
+  !! @params[in] esmf_grid
+  !!    - The initialized `esmf_grid` variable.
+  !!
+  !! @params[in] varin
+  !!    - A 1-dimensional double-precision array of the source grid
+  !!      variable for a given level (e.g., vertical slice).
+  !!
+  !! @params[inout] varout
+  !!    - A 1-dimensional double-precision array of the destination
+  !!      grid variables for a given level (e.g., vertical slice).
   subroutine interp(esmf_grid, varin, varout)
     type(esmf_struct), intent(in) :: esmf_grid
-    real(rdouble), dimension(:), intent(in) :: varin
     real(rdouble), dimension(:), intent(inout) :: varout
+    real(rdouble), dimension(:), intent(in) :: varin
     integer(ilong) :: idx
 
-    !! Compute the output variable `varout` by interpolating the
-    !! respective input variable `varin` using the ESMF remapping
-    !! coefficients.
     varout = 0.0_rdouble
     do idx = 1, esmf_grid%n_s
        varout(esmf_grid%row(idx)) = varout(esmf_grid%row(idx)) &
@@ -138,17 +142,18 @@ contains
   subroutine remap(esmffile, varinfo)
     type(esmffile_struct), intent(in) :: esmffile
     type(varinfo_struct), intent(in) :: varinfo
-    type(ncdata) :: ncclsin, ncclsout !! # TODO
+    type(ncdata) :: ncclsin, ncclsout
     type(esmf_struct) :: esmf
     character(len=maxchar) :: msg
-    real(rdouble), dimension(:,:,:), allocatable :: ncvarin
-    real(rdouble), dimension(:,:,:), allocatable :: ncvarout
-    real(rdouble), dimension(:), allocatable :: varin
-    real(rdouble), dimension(:), allocatable :: varout
+    real(rdouble), dimension(:,:,:), allocatable :: ncvarin, ncvarout
+    real(rdouble), dimension(:), allocatable :: varin, varout
     integer(ilong) :: idx, ilevs
 
-    !! Loop through variables and interpolate accordingly.
+    !! Loop through the specified variables.
     do idx = 1, varinfo%nvars
+
+       !! Read the ESMF remapping coefficients for the respective
+       !! interpolation type.
        esmf%filename = get_esmf_file(esmffile=esmffile, var=varinfo%var(idx))
        call esmf_read(esmf=esmf)
        if (.not. allocated(ncvarin)) &
@@ -162,6 +167,8 @@ contains
        if (.not. allocated(varout)) &
             allocate(varout(esmf%dst_grid_dims(1)*esmf%dst_grid_dims(2)))
 
+       !! Read the source grid variable and interpolate as a function
+       !! of vertical level (slice).
        ncclsin%ncfile = varinfo%var(idx)%ncfilein
        ncclsin%read = .true.
        call ncclsin%ncopen()
@@ -169,24 +176,27 @@ contains
        call ncclsin%ncclose()
        do ilevs = 1, varinfo%var(idx)%nlevs
           write(msg,500) trim(adjustl(varinfo%var(idx)%ncvarin)), ilevs
-          write(6,*) trim(adjustl(msg))
+          call write_msg(msg=msg)
           varin = reshape(ncvarin(:,:,ilevs), (/shape(varin)/))
           call interp(esmf_grid=esmf,varin=varin,varout=varout)
           ncvarout(:,:,ilevs) = reshape(varout, (/shape(ncvarout(:,:,ilevs))/))
        end do
        if (allocated(ncvarin)) deallocate(ncvarin)
        if (allocated(varin)) deallocate(varin)
+
+       !! Write the interpolated variable to the output
+       !! netCDF-formatted file path.
        ncclsout%ncfile = output_netcdf
        ncclsout%read_write = .true.
        write(msg,501)  trim(adjustl(varinfo%var(idx)%ncvarout)), &
             trim(adjustl(output_netcdf))
-       write(6,*) trim(adjustl(msg))
+       call write_msg(msg=msg)
        call ncclsout%ncopen()
        call ncwrite(nccls=ncclsout,varname=varinfo%var(idx)%ncvarout,vararr=ncvarout)
        call ncclsout%ncclose()
        if (allocated(ncvarout)) deallocate(ncvarout)
        if (allocated(varout)) deallocate(varout)
-       call destroy_struct(esmf)
+       call destroy_struct(grid=esmf)
     end do
 500 format("Interpolating variable",1x,a,1x,"at level",1x,i3.3,".")
 501 format("Writing interpolated variable",1x,a,1x,"to netCDF file path",1x,a,".")

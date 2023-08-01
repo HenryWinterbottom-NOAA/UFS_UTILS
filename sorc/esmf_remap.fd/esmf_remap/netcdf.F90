@@ -2,12 +2,12 @@
 !! @details This module contains the base-class object for the netCDF
 !!          API.
 !! @author Henry R. Winterbottom
-!! @date 08 July 2023
+!! @date 01 August 2023
 !! @version 0.0.1
 !! @license LGPL v2.1
 module netcdf_interface
    use netcdf
-   use variables_interface, only: abort_remap, ilong, maxchar, rdouble, rsingle
+   use variables_interface, only: ilong, maxchar, rdouble, rsingle
    implicit none
    private
    public :: destroy_ncvarinfo
@@ -146,8 +146,8 @@ module netcdf_interface
      class(ncdata), intent(in) :: nccls
      character(len=maxchar) :: msg
      
-     write (msg, 500) trim(nf90_strerror(nccls%ncstatus))
-     call abort_remap(msg=msg)
+     write (msg, 500) trim(nf90_strerror(nccls%ncstatus)); &
+          write(6,*) trim(adjustl(msg))
 500  format("NetCDF failed with error", 1x, a, 1x, ". Aborting!!!")
    end subroutine ncerror
    

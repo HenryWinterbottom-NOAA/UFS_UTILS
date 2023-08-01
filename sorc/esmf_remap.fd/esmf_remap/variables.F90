@@ -3,15 +3,14 @@
 !!          structures, and the respective data structure allocation
 !!          and deallocation interface. for supported variable types.
 !! @author Henry R. Winterbottom
-!! @date 30 June 2023
+!! @date 01 August 2023
 !! @version 0.0.1
 !! @license LGPL v2.1
 module variables_interface
   implicit none
   private
-  public :: abort_remap, destroy_struct, dstgrid_struct, esmf_struct, &
-       esmffile_struct, get_boolean, init_struct, interp_struct, var_struct, &
-       varinfo_struct
+  public :: destroy_struct, dstgrid_struct, esmf_struct, esmffile_struct, &
+       get_boolean, init_struct, interp_struct, var_struct, varinfo_struct
 
   !> @brief The supported/allowable data types.
   integer, public, parameter :: ilong = selected_int_kind(8)
@@ -119,17 +118,6 @@ contains
     if (boolstr(1:2) == ".T") outbool = .true.
     if (boolstr(1:2) == ".t") outbool = .true.
   end function get_boolean
-
-  !> @brief Prints a message and aborts the program.
-  !!
-  !! @params[in] Character string to be written to `stdout` prior to
-  !!             aborting the program.
-  subroutine abort_remap(msg)
-    character(len=maxchar), intent(in) :: msg
-
-    write(6,*) msg
-    stop 9999
-  end subroutine abort_remap
 
   !> @brief Destroys the `dstgrid_struct` data structure.
   !!

@@ -3,11 +3,11 @@
 !!          source grid to a destination grid using pre-computed ESMF
 !!          remapping coefficients.
 !! @author Henry R. Winterbottom
-!! @date 24 July 2023
+!! @date 01 August 2023
 !! @version 0.0.1
 !! @license LGPL v2.1
 module esmf_remap_interface
-  use namelist_interface, only: read_namelist
+  use namelist_interface, only: setup_remap
   use remap_interface, only: remap
   use variables_interface, only: destroy_struct, esmffile_struct, varinfo_struct
   implicit none
@@ -21,16 +21,8 @@ contains
     type(esmffile_struct) :: esmffile
     type(varinfo_struct) :: varinfo
     
-    !! Read the namelist and configure the application attributes.
-    call read_namelist(esmffile=esmffile, varinfo=varinfo)
-
-    !! Remap the specified variables and update the output netCDF
-    !! formatted file.
-    call remap(esmffile=esmffile, varinfo=varinfo) !! # TODO: Pass the
-                                                   !! output netCDF
-                                                   !! file path here.
-
-    !! Cleanup.
-    call destroy_struct(varinfo)    
+    call setup_remap(esmffile=esmffile, varinfo=varinfo)
+    call remap(esmffile=esmffile, varinfo=varinfo) 
+    call destroy_struct(grid=varinfo)    
   end subroutine esmf_remap
 end module esmf_remap_interface
