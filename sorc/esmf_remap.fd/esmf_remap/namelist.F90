@@ -20,7 +20,7 @@ module namelist_interface
        rdouble, var_struct, varinfo_struct
   implicit none
   private
-  public :: read_namelist
+  public :: output_netcdf, read_namelist
 
   character(len=maxchar) :: namelist_input = "./esmf_remap.input"
   character(len=maxchar) :: bilinear = "NOT USED"
@@ -31,11 +31,12 @@ module namelist_interface
   character(len=maxchar) :: nearests2d = "NOT USED"
   character(len=maxchar) :: output_netcdf = "NOT USED"
   character(len=maxchar) :: varsfile = "NOT USED"
+  logical :: ncsqueeze = .false.
   integer(ilong), parameter :: unit_nml = 99
   integer(ilong) :: nlevs = 1
   namelist /gridinfo/ grid_ncfile, grid_nclatname, grid_nclonname
   namelist /esmf/ bilinear, conserve, nearests2d
-  namelist /share/ output_netcdf, varsfile
+  namelist /share/ output_netcdf, varsfile, ncsqueeze
 contains
 
   !> @brief Determines the interpolation type from the input variable
@@ -126,7 +127,7 @@ contains
   subroutine build_output(dstgrid, esmffile, varinfo)
     type(esmffile_struct), intent(in) :: esmffile
     type(ncdata) :: nccls
-    type(varinfo_struct), intent(in) :: varinfo
+    type(varinfo_struct), intent(inout) :: varinfo
     type(dstgrid_struct), intent(inout) :: dstgrid
     type(ncvarinfo_struct) :: ncvarinfo
     integer(ilong) :: nlevs
@@ -151,8 +152,7 @@ contains
     type(varinfo_struct), intent(in) :: varinfo
     integer(ilong) :: idx
     
-    !! Define the netCDF dimension attributes.
-
+    !! Define the netCDF variable dimension attributes.
     dstgrid%nlevs = maxval(varinfo%var(:)%nlevs)
     call init_struct(dstgrid)
     ncvarinfo%dimname(1) = "nlons"
@@ -186,18 +186,34 @@ contains
   subroutine define_ncvars(nccls,varinfo,ncvarinfo, dstgrid)
     type(dstgrid_struct), intent(inout) :: dstgrid
     type(ncdata), intent(in) :: nccls
-    type(varinfo_struct), intent(in) :: varinfo
+    type(varinfo_struct), intent(inout) :: varinfo
     type(ncvarinfo_struct), intent(inout) :: ncvarinfo
     character(len=maxchar) :: varname
+    integer(ilong) :: idx, ncidx, ncdims_squeeze
     
     !! # TODO: This can be generalized further; right now we assume
     !! # only (nx,ny,nz) type arrays.
     ncvarinfo%ndims = 3  
-    ncvarinfo%nvars = ncvarinfo%ndims !! + varinfo%nvars
+    ncvarinfo%nvars = ncvarinfo%ndims + varinfo%nvars
     call init_ncvarinfo(ncvarinfo=ncvarinfo)
     ncvarinfo%dtype(1:ncvarinfo%nvars) = nf90_double 
     call define_ncdims(nccls=nccls, ncvarinfo=ncvarinfo, dstgrid=dstgrid, &
-         varinfo=varinfo) 
+         varinfo=varinfo)
+
+    do idx = 1, varinfo%nvars
+       ncidx = idx + ncvarinfo%ndims
+       ncdims_squeeze = varinfo%var(idx)%ndims
+       if (ncsqueeze) then
+          if (varinfo%var(idx)%ndims == 4) ncdims_squeeze = 3
+          if (varinfo%var(idx)%ndims == 3) ncdims_squeeze = 2
+       end if
+       varinfo%var(idx)%ndims = ncdims_squeeze
+       ncvarinfo%varndim(ncidx) = varinfo%var(idx)%ndims
+       ncvarinfo%varname(ncidx) = varinfo%var(idx)%ncvarout
+       ncvarinfo%varid(ncidx) = ncidx
+       ncvarinfo%vardimid(ncidx,1) = 1; ncvarinfo%vardimid(ncidx,2) = 2
+       if (ncdims_squeeze == 3) ncvarinfo%vardimid(ncidx,3) = 3
+    end do
   end subroutine define_ncvars
 
   !> @brief Define the destination grid attributes.
@@ -347,14 +363,13 @@ contains
     type(dstgrid_struct) :: dstgrid
     type(ncdata) :: nccls
     character(len=maxchar) :: msg
-    
+
     call ncwrite(nccls=nccls,varname="lons", vararr=dstgrid%lon)
     write(msg,500) "lons", trim(adjustl(nccls%ncfile)); write(6,*) trim(adjustl(msg))
     call ncwrite(nccls=nccls,varname="lats", vararr=dstgrid%lat)
     write(msg,500) "lats", trim(adjustl(nccls%ncfile)); write(6,*) trim(adjustl(msg))
     call ncwrite(nccls=nccls,varname="levels", vararr=dstgrid%levels)
-    write(msg,500) "levels", trim(adjustl(nccls%ncfile)); write(6,*) trim(adjustl(msg))
-    
+    write(msg,500) "levels", trim(adjustl(nccls%ncfile)); write(6,*) trim(adjustl(msg))    
 500 format("Writing variable", 1x, a, 1x, "to netCDF file path", 1x, a, 1x,".")
   end subroutine write_output
 end module namelist_interface
