@@ -15,7 +15,7 @@ module namelist_interface
         varinfo_struct
     implicit none
     private
-    public :: output_netcdf, setup_remap
+    public :: ncsqueeze, output_netcdf, setup_remap
 
     character(len=maxchar) :: namelist_input = "./esmf_remap.input"
     character(len=maxchar) :: bilinear = "NOT USED"
@@ -54,7 +54,7 @@ contains
         nccls%write = .true.
         call nccls%ncopen()
         call define_ncvars(nccls = nccls, varinfo = varinfo, ncvarinfo = ncvarinfo, &
-            dstgrid = dstgrid)
+             dstgrid = dstgrid)
         call init_ncvarinfo(ncvarinfo = ncvarinfo)
         call nccls%ncwritedef(ncvarinfo = ncvarinfo)
         call write_ncheader(nccls = nccls, dstgrid = dstgrid)

@@ -95,6 +95,11 @@ contains
         character(len=maxchar) :: dimname
         integer(ilong) :: ndims, nlevs
 
+        !! #TODO: Note that there is a bug(s) in the logic below; the
+        !! #block below assumes that the time-coordinate is the first
+        !! #coordinate; this is not a safe assumption and needs to be
+        !! #resolved; one possible solution is to check explicitly
+        !! #whether the first coordinate is `Time` or some variant.
         nccls%ncfile = var%ncfilein
         nccls%read = .true.
         call nccls%ncopen()
@@ -102,9 +107,14 @@ contains
         if (ndims == 4) then
             call ncdimval(nccls = nccls, dimid = 4, dimname = dimname, dimval = nlevs)
         elseif (ndims == 3) then
-            call ncdimval(nccls = nccls, dimid = 3, dimname = dimname, dimval = nlevs)
-        else
             nlevs = 1
+        !! # TODO: The following has been commented out related to the
+        !! # bug described above.
+            !call ncdimval(nccls = nccls, dimid = 4, dimname = dimname, dimval = nlevs)
+        !elseif (ndims == 2) then
+        !    nlevs = 1
+        else
+            stop 9999 !! # TODO: Raise exception here.
         end if
         var%ndims = ndims; var%nlevs = nlevs
         call nccls%ncclose()

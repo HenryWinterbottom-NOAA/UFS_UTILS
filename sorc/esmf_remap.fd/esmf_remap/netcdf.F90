@@ -257,7 +257,7 @@ contains
             nccls%ncstatus = nf90_def_dim(nccls%ncfileid, &
                 trim(adjustl(ncvarinfo%dimname(idx))), &
                 ncvarinfo%dimval(idx), ncvarinfo%dimid(idx))
-        end do
+         end do
 
         ! ! Build the variable arrays.
         do idx = 1, ncvarinfo%nvars
