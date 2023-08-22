@@ -173,7 +173,10 @@ contains
             ncclsin%read = .true.
             call ncclsin%ncopen()
             call ncread(nccls = ncclsin, varname = varinfo%var(idx)%ncvarin, vararr = ncvarin)
-            call ncclsin%ncclose()            
+            call ncclsin%ncclose()
+            print*, varinfo%var(idx)%nlevs
+            stop 9999
+            
             do ilevs = 1, varinfo%var(idx)%nlevs
                 write(msg, 500) trim(adjustl(varinfo%var(idx)%ncvarin)), ilevs
                 call write_msg(msg = msg)

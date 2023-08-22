@@ -8,7 +8,7 @@
 module io_interface
     use netcdf_interface, only: ncdata, ncdimval, ncread, ncvardims
     use variables_interface, only: dstgrid_struct, esmffile_struct, ilong, &
-        init_struct, interp_struct, maxchar, rdouble, var_struct, varinfo_struct
+         init_struct, interp_struct, maxchar, rdouble, var_struct, varinfo_struct    
     implicit none
     private
     public :: abort_remap, get_diminfo, get_esmf, get_gridinfo, get_interp, get_nitems, &
@@ -95,6 +95,8 @@ contains
         character(len=maxchar) :: dimname
         integer(ilong) :: ndims, nlevs
 
+        integer :: dimid, status
+
         !! #TODO: Note that there is a bug(s) in the logic below; the
         !! #block below assumes that the time-coordinate is the first
         !! #coordinate; this is not a safe assumption and needs to be
@@ -104,8 +106,17 @@ contains
         nccls%read = .true.
         call nccls%ncopen()
         call ncvardims(nccls = nccls, varname = var%ncvarin, ndims = ndims)
+
+        
         if (ndims == 4) then
-            call ncdimval(nccls = nccls, dimid = 4, dimname = dimname, dimval = nlevs)
+
+           !print*, var%varid
+           
+           print*, trim(adjustl(var%ncvarin))
+           stop
+           call ncdimval(nccls = nccls, dimid = 4, dimname = dimname, dimval = nlevs)
+
+           stop
         elseif (ndims == 3) then
             nlevs = 1
         !! # TODO: The following has been commented out related to the

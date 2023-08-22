@@ -212,12 +212,22 @@ contains
     subroutine ncvardims(nccls, varname, ndims)
         class(ncdata), intent(inout) :: nccls
         character(len=*) :: varname
-        integer(ilong) :: ndims
+        integer(ilong), dimension(:), allocatable :: dimids
+        integer(ilong) :: var_shape(NF90_MAX_VAR_DIMS)
+        integer(ilong) :: idx, ndims
 
         call ncvarid(nccls = nccls, varname = varname)
         nccls%ncstatus = nf90_inquire_variable(nccls%ncfileid, nccls%ncvarid, &
-            ndims = ndims)
+             ndims = ndims)
+
+        if (.not. allocated(dimids)) allocate(dimids(ndims))
+        do idx = 1, ndims
+           call nf90_inq_dimlen(nccls%ncfileid, dimids(idx), var_shape(idx), &
+                nccls%ncstatus)
+
+        end do
         if (nccls%ncstatus /= 0) call ncerror(nccls = nccls)
+        if (allocated(dimids)) deallocate(dimids)
     end subroutine ncvardims
 
     ! > @brief Defines the integer variable identification key within an
