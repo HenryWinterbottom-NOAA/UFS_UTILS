@@ -1,0 +1,40 @@
+ncoutput: ./ncout.ocn.nc
+ncinput: &ncinput !ENV ${ESMF_REMAP_TESTS}/ocn2013100106.01.2013100100.nc
+nml_tmpl: ./parm/nml.jinja2
+regrid_exec: !ENV ${ESMF_REMAP_EXEC}
+     
+grid: 
+     ncfile: !ENV ${ESMF_REMAP_TESTS}/test/rect.0p25_SCRIP.nc
+     nclat: grid_center_lat
+     nclon: gric_center_lon
+     scrip: True
+     
+esmf_coeff_files:
+     _: &srcmass2dstmass_bilinear !ENV ${ESMF_REMAP_TESTS}/tripole.mx025.Ct.to.rect.0p25.bilinear.nc
+
+variables:
+     so:
+          esmf_coeffs_file: *srcmass2dstmass_bilinear
+          interp_type: bilinear
+          ncfile: *ncinput
+          ncvarname: so
+     temp:
+          esmf_coeffs_file: *srcmass2dstmass_bilinear
+          interp_type: bilinear
+          ncfile: *ncinput
+          ncvarname: temp
+     SSH:
+          esmf_coeffs_file: *srcmass2dstmass_bilinear
+          interp_type: bilinear
+          ncfile: *ncinput
+          ncvarname: SSH  
+     SSS:
+          esmf_coeffs_file: *srcmass2dstmass_bilinear
+          interp_type: bilinear
+          ncfile: *ncinput
+          ncvarname: SSS
+     SST:
+          esmf_coeffs_file: *srcmass2dstmass_bilinear
+          interp_type: bilinear
+          ncfile: *ncinput
+          ncvarname: SST

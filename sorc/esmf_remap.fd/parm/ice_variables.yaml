@@ -1,0 +1,30 @@
+ncoutput: ./ncout.ice.nc
+ncinput: &ncinput !ENV ${ESMF_REMAP_TESTS}/test/ice2013100106.01.2013100100.nc
+nml_tmpl: ./parm/nml.jinja2
+regrid_exec: ./esmf_remap.x
+     
+grid:
+     ncfile: !ENV ${ESMF_REMAP_TESTS}/test/rect.0p25_SCRIP.nc
+     nclat: grid_center_lat
+     nclon: gric_center_lon
+     scrip: True
+     
+esmf_coeff_files:
+     _: &srcmass2dstmass_bilinear !ENV ${ESMF_REMAP_TESTS}/test/tripole.mx025.Ct.to.rect.0p25.bilinear.nc
+
+variables:
+     aice_h:
+          esmf_coeffs_file: *srcmass2dstmass_bilinear
+          interp_type: bilinear
+          ncfile: *ncinput
+          ncvarname: aice_h
+     hi_h:
+          esmf_coeffs_file: *srcmass2dstmass_bilinear
+          interp_type: bilinear
+          ncfile: *ncinput
+          ncvarname: hi_h
+     tarea:
+          esmf_coeffs_file: *srcmass2dstmass_bilinear
+          interp_type: bilinear
+          ncfile: *ncinput
+          ncvarname: tarea
