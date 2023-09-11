@@ -1,0 +1,13 @@
+# Usage
+
+user@host:$ ./cdo_remap.sh <A> <B> <C>
+
+A: Attribute file for variables to be interpolated;
+B: Destination grid projection netCDF-formatted file path;
+C: netCDF-formatted file path to contain the interpolated variables.
+
+# Attribute file format.
+
+<netCDF variable name> <CDO interpolation type> <netCDF variable source file>
+
+See `variable.filelist` for an example.
