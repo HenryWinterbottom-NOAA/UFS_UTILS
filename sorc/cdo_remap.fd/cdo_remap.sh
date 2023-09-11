@@ -39,7 +39,7 @@ function nc_concat(){
 	echo "netCDF-formatted file path ${output_path} exists; merging ${var_interp_path}"
 	$(command -v cdo) merge "${output_path}" "${var_interp_path}" "${tmp_nc_file}"
 	$(command -v mv) "${tmp_nc_file}" "${output_path}"
-	$(command -v rm) "${var_output_path}" >> /dev/null
+	$(command -v rm) "${var_interp_path}" >> /dev/null
     else
 	echo "netCDF-formatted file path ${output_path} does not exist; creating..."
 	$(command -v mv) "${var_interp_path}" "${output_path}"
