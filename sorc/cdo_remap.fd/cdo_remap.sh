@@ -1,15 +1,17 @@
 #!/bin/bash
 
-#
 # Bash Script: cdo_remap.sh
 # Description: This remaps a source grid variable to a destination
 #              grid projection using the Climate Data Operators (CDO)
 #              application.
 # Author: Henry R. Winterbottom
 # Date: 11 September 2023
-#
 
-# Check for the correct number of command-line arguments.
+# Collect the command line arguments.
+variable_file="${1}"
+dstgrid_path="${2}"
+output_path="${3}"
+
 if [ "$#" -ne 3 ]; then
     echo "Usage: $0 <variable_file> <dstgrid_path> <output_path>"
     exit 1
@@ -18,9 +20,9 @@ fi
 # Assign command-line arguments to variables.
 
 # TODO: This could also be done using a bash configure-type file.
-variable_file="${1}"
-dstgrid_path="${2}"
-output_path="${3}"
+#variable_file="${1}"
+#dstgrid_path="${2}"
+#output_path="${3}"
 
 # Function to concatenate NetCDF files.
 
@@ -66,12 +68,10 @@ function run_cdo(){
 # variables can be interpolated and written to the same output file
 # path.
 while IFS= read -r line; do 
-
     varname=$(echo "${line}" | $(command -v awk) '{print $1}')
     varfile=$(echo "${line}" | $(command -v awk) '{print $3}')
     interp_type=$(echo "${line}" | $(command -v awk) '{print $2}')
     run_cdo "${varname}" "${varfile}" "${interp_type}"
-
 done < "${variable_file}"
 
 
