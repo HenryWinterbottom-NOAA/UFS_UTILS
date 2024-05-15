@@ -33,6 +33,7 @@ function(PULL_DATA THE_URL THE_FILE)
   endif()
 endfunction()
 
+add_subdirectory(ocean_merge)
 add_subdirectory(fvcom_tools)
 add_subdirectory(filter_topo)
 add_subdirectory(chgres_cube)
