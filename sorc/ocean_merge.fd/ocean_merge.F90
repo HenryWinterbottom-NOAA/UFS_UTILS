@@ -7,11 +7,12 @@
 !! @author Sanath Kumar (original author)
 program ocean_merge
   use namelist_interface, only: read_namelist, nml_attrs
+  use merge_interface, only: merge_lake_ocnmsk, merge_attrs 
   use kinds_interface, only: maxchar
   implicit none
 
   call read_namelist()
-  
+  call merge_lake_ocnmsk()
   
 
   
