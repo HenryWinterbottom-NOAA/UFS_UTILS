@@ -6,14 +6,14 @@
 !! @author Rahul Mahajan (original author)
 !! @author Sanath Kumar (original author)
 program ocean_merge
-  use namelist_interface, only: read_namelist, nml_attrs
-  use merge_interface, only: merge_lake_ocnmsk, merge_attrs 
-  use kinds_interface, only: maxchar
+  use namelist_interface, only: read_namelist
+  use merge_interface, only: merge_mask
+  use variables_interface, only: nml_struct
   implicit none
-
-  call read_namelist()
-  call merge_lake_ocnmsk()
   
-
+  type(nml_struct) :: nml_attrs
   
+  call read_namelist(nml_attrs=nml_attrs)
+  call merge_mask(nml_attrs=nml_attrs)
+
 end program ocean_merge
