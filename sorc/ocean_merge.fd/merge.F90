@@ -2,7 +2,8 @@
 module merge_interface
   use kinds_interface, only: rsingle, rdouble, ilong, maxchar
   use variables_interface, only: merge_struct, nml_struct, nml_lake_struct, nml_ocean_struct, init_struct, clean_struct
-  use module_ncio, only: open_dataset, close_dataset, get_dim, read_vardata, Dimension, Dataset
+  use module_ncio, only: open_dataset, create_dataset, close_dataset, get_dim, read_vardata, Dimension, Dataset, write_vardata
+  use netcdf
   implicit none
   private
   public :: merge_mask
@@ -22,6 +23,7 @@ contains
        call read_lndinfo(tile=tile, merge_attrs=merge_attrs, nml_attrs=nml_attrs)
        call read_ocninfo(tile=tile, merge_attrs=merge_attrs, nml_attrs=nml_attrs)
        call update_mask(merge_attrs=merge_attrs, nml_attrs=nml_attrs)
+       call write_maskupdate(tile=tile, merge_attrs=merge_attrs, nml_attrs=nml_attrs)
        call clean_struct(struct=merge_attrs)
     end do
 
@@ -34,8 +36,9 @@ contains
   subroutine update_mask(merge_attrs, nml_attrs)
     type(merge_struct), intent(inout) :: merge_attrs
     type(nml_struct), intent(inout) :: nml_attrs
-    integer(ilong) :: idx, jdx
+    integer(ilong) :: idx, jdx, lake_pt, nodp_pt
 
+    lake_pt = 0; nodp_pt = 0
     do idx = 1, merge_attrs%nlon
        do jdx = 1, merge_attrs%nlat
           if (nml_attrs%nml_info%binary_lake .eq. 1) merge_attrs%lake_frac(idx,jdx) = nint(merge_attrs%lake_frac(idx,jdx))
@@ -45,6 +48,7 @@ contains
           if (merge_attrs%land_frac(idx,jdx) .gt. 1.0 - nml_attrs%nml_info%min_land) merge_attrs%land_frac(idx,jdx) = 1.0
           if (1.0 - merge_attrs%land_frac(idx,jdx) > 0.0) merge_attrs%land_frac(idx,jdx) = 0.0
           if (merge_attrs%land_frac(idx,jdx) .gt. 0.0) then
+             lake_pt = lake_pt + 1
              if (nml_attrs%nml_info%binary_lake .eq. 1) then
                 merge_attrs%land_frac(idx,jdx) = 0.0
              else
@@ -52,12 +56,16 @@ contains
              end if
              if (merge_attrs%lake_depth(idx,jdx) .le. 0.0) then
                 merge_attrs%lake_depth(idx,jdx) = nml_attrs%nml_info%def_lakedp
+                nodp_pt = nodp_pt + 1
              end if
           else
              merge_attrs%lake_depth(idx,jdx) = 0.0
           end if
        end do
-    end do  
+    end do
+    write(6,500) lake_pt, nodp_pt
+
+500 format("UPDATE_MASK: Total lake point", 1x,i6,1x,"where", 1x,i6,1x,"has no depth.")
   end subroutine update_mask
 
   !> @brief
@@ -79,6 +87,7 @@ contains
     diminfo = get_dim(ds, trim(adjustl(nml_attrs%nml_lake%nlat_str)))
     merge_attrs%nlat = diminfo%len
     call init_struct(merge_attrs)
+    
     !! TODO: To increase flexibility further, define the netCDF
     !! variable names for the latitude and longitude grids at the
     !! namelist level.
@@ -136,5 +145,61 @@ contains
 502 format("READ_OCNINFO: Reading netCDF variable", 1x, a, ".")
   end subroutine read_ocninfo
 
-  
+  !> @brief
+  !! @author Henry R. Winterbottom
+  !! @date 23 May 2024
+  subroutine write_maskupdate(tile, merge_attrs, nml_attrs)
+    type(merge_struct), intent(inout) :: merge_attrs
+    type(nml_struct), intent(in) :: nml_attrs
+    character(len=maxchar) :: ncfile
+    integer(ilong), dimension(:), allocatable :: dimid, varid
+    integer(ilong), intent(in) :: tile
+    integer(ilong) :: ncid
+
+    if(.not. allocated(dimid)) allocate(dimid(2))
+    if(.not. allocated(varid)) allocate(varid(4))
+    
+    write(ncfile,500) trim(adjustl(nml_attrs%nml_info%out_dir)), trim(adjustl(nml_attrs%nml_lake%res)), trim(adjustl(nml_attrs%nml_ocean%res)), tile
+
+
+    call ncerrhdl(nf90_create(path=trim(adjustl(ncfile)), &
+         cmode=or(nf90_clobber, nf90_64bit_offset), ncid=ncid))
+
+    
+    call ncerrhdl(nf90_def_dim(ncid, "lon", merge_attrs%nlon, dimid(1)))
+    call ncerrhdl(nf90_def_dim(ncid, "lat", merge_attrs%nlat, dimid(2)))
+    
+    call ncerrhdl(nf90_def_var(ncid, "land_frac", nf90_float, dimid(1:2), varid(1)))
+    call ncerrhdl(nf90_def_var(ncid, "lake_frac", nf90_float, dimid(1:2), varid(2)))
+    call ncerrhdl(nf90_def_var(ncid, "lake_depth", nf90_float, dimid(1:2), varid(3)))
+    call ncerrhdl(nf90_def_var(ncid, "slmsk", nf90_float, dimid(1:2), varid(4)))
+    
+    call ncerrhdl(nf90_enddef(ncid))
+
+    call ncerrhdl(nf90_put_var(ncid,varid(1),merge_attrs%land_frac))
+    call ncerrhdl(nf90_put_var(ncid,varid(2),merge_attrs%lake_frac))
+    call ncerrhdl(nf90_put_var(ncid,varid(3),merge_attrs%lake_depth))
+    call ncerrhdl(nf90_put_var(ncid,varid(4),merge_attrs%slmsk))
+
+    call ncerrhdl(nf90_close(ncid))
+    if(allocated(dimid)) deallocate(dimid)
+    if(allocated(varid)) deallocate(varid)
+    
+500 format(a, "/", a, ".", a, ".tile", i1.1, ".nc")
+501 format("WRITE_MASKUPDATE: Writing updated mask to", 1x, a, ".")
+  end subroutine write_maskupdate
+
+  !> @brief
+  !! @author Henry R. Winterbottom
+  !! @date 23 May 2024
+  subroutine ncerrhdl(ret)
+    integer(ilong), intent(in) :: ret
+
+    if(ret /= NF90_NOERR) then
+       write(6,500) nf90_strerror(ret)
+       stop 999
+    end if
+    
+500 format("NCERROR: netCDF action failed with error", 1x, a, ". Aborting!!!")
+  end subroutine ncerrhdl
 end module merge_interface
